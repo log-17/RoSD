@@ -15,7 +15,7 @@ Theta refers to the angle
 W(ms)  P(%)  Theta(°)
 0.5ms  2.5     0
 1.5ms  7.5     90
-2.5ms  12.5    180
+2.5ms  12.5    180 
 
 you can draw a line graph to calculate a and b
 
@@ -23,8 +23,9 @@ formula:
 W = T * P
 P = b + Theta * a / 180
 '''
+
 # sg90 micro-servo motor
-servo_pin = 12
+servo_pin = 22
 frequency = 50
 a = 10
 b = 2.5
@@ -33,7 +34,14 @@ b = 2.5
 trig_pin = 15  # send
 echo_pin = 16  # receive
 
-btn_pin = 22
+# active buzzer
+buzzer_pin = 11
+
+# button
+btn_pin = 12
+
+init_data = {}
+detect_data = {}
 
 
 def setup():
@@ -41,10 +49,12 @@ def setup():
     GPIO.setmode(GPIO.BOARD)
     GPIO.setwarnings(False)
 
-    GPIO.setup(servo_pin, GPIO.OUT)  # G18
+    GPIO.setup(servo_pin, GPIO.OUT)  # G25
     GPIO.setup(trig_pin, GPIO.OUT)  # G22
     GPIO.setup(echo_pin, GPIO.IN)  # G23
-    GPIO.setup(btn_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # G17, pull-up resistor
+    GPIO.setup(buzzer_pin, GPIO.OUT)  # G17
+    GPIO.output(buzzer_pin, GPIO.HIGH)  # high -> no sound
+    GPIO.setup(btn_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # G18, pull-up resistor
     GPIO.add_event_detect(btn_pin, GPIO.BOTH, callback=detect, bouncetime=200)  # detect events, debounce for 200ms
 
     pwm = GPIO.PWM(servo_pin, frequency)
@@ -61,25 +71,32 @@ def rotate(x):
         print "button pressed"
         for angle in range(0, 181, 30):
             set_angle(angle)
+            measure(init_data, angle)
+            time.sleep(1)
     if x == 1:  # Detecting Mode
         print "button not pressed"
         while True:
             for angle in range(180, -1, -30):
                 set_angle(angle)
+                measure(detect_data, angle)
+                time.sleep(1)
             for angle in range(0, 181, 30):
                 set_angle(angle)
+                measure(detect_data, angle)
+                time.sleep(1)
+
+    for key, value in init_data.items():
+        print str(key) + ":" + str(value)
 
 
-def set_angle(angle):       
+def set_angle(angle):
     duty_cycle = b + angle * a / 180
     pwm.ChangeDutyCycle(duty_cycle)
     print "angle =", angle, "-> duty cycle =", duty_cycle
-    measure()
-    time.sleep(1)
 
 
-def measure():
-    GPIO.output(trig_pin, 1)  #  1
+def measure(dict, angle):
+    GPIO.output(trig_pin, 1)
     time.sleep(0.00001)  # 10us
     GPIO.output(trig_pin, 0)
 
@@ -95,7 +112,29 @@ def measure():
 
     # compute distance
     distance = (end - start) * 340 / 2 * 100
-    print('%.2f' % distance)
+    dict[angle] = round(distance, 2)
+    print("%.2f" % distance)
+
+
+def judge_distance(init_data, detect_data):
+    pass
+
+
+def buzzer_on():
+    GPIO.output(buzzer_pin, GPIO.LOW)
+    print "start"
+
+
+def buzzer_off():
+    GPIO.output(buzzer_pin, GPIO.HIGH)
+    print "stop"
+
+
+def beep(x):
+    buzzer_on()
+    time.sleep(x)
+    buzzer_off()
+    time.sleep(x)
 
 
 def loop():
@@ -106,6 +145,7 @@ def loop():
 def destroy():
     print "done"
     set_angle(0)
+    GPIO.output(buzzer_pin, GPIO.HIGH)
     GPIO.cleanup()
 
 
